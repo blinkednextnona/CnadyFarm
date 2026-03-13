@@ -265,14 +265,12 @@ local function runAntiAdminCheck()
                 -- If auto re-execute, queue the script to run after teleport
                 if Config.Settings.Farming.AutoReExecute then
                     pcall(function()
+                        local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CandyFarmLoader/refs/heads/main/Loader.lua"))()'
                         if queue_on_teleport then
-                            local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()'
                             queue_on_teleport(loaderCode)
                         elseif syn and syn.queue_on_teleport then
-                            local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()'
                             syn.queue_on_teleport(loaderCode)
                         elseif fluxus and fluxus.queue_on_teleport then
-                            local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()'
                             fluxus.queue_on_teleport(loaderCode)
                         end
                     end)
