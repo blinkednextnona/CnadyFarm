@@ -39,7 +39,7 @@ local CONFIG = {
     FontMedium        = Enum.Font.GothamMedium,
     FontRegular       = Enum.Font.Gotham,
     ToggleKey         = Enum.KeyCode.RightShift,
-    Title             = "💖 HEART ZONE V18",
+    Title             = "Heart Farm V18",
     Subtitle          = "Ultimate",
 }
 
