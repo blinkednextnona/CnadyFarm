@@ -40,7 +40,7 @@ local CONFIG = {
     FontRegular       = Enum.Font.Gotham,
     ToggleKey         = Enum.KeyCode.RightShift,
     Title             = "Heart Farm V18",
-    Subtitle          = "Ultimate",
+    Subtitle          = "Made By CozzyBruh",
 }
 
 -- ═══════════════════════════════════════
@@ -582,6 +582,209 @@ function Library:AddTab(name, icon)
         local boxObj = { Frame = BoxFrame, Input = Input }
         function boxObj:SetText(t) Input.Text = t end
         return boxObj
+    end
+
+    -- ─── Color Picker (wheel + value slider) ───
+    function Tab:AddColorPicker(text, default, callback)
+        callback = callback or function() end
+        default = default or Color3.new(1, 1, 1)
+
+        local PickerFrame = CreateInstance("Frame", {
+            Size = UDim2.new(1, 0, 0, 160), BackgroundColor3 = CONFIG.Surface,
+            BorderSizePixel = 0, LayoutOrder = #TabPage:GetChildren(), Parent = TabPage
+        })
+        AddCorner(PickerFrame, CONFIG.SmallRadius)
+
+        -- Label + preview swatch
+        CreateInstance("TextLabel", {
+            Position = UDim2.new(0, 12, 0, 6), Size = UDim2.new(0.5, 0, 0, 18), BackgroundTransparency = 1,
+            Text = text, TextColor3 = CONFIG.TextPrimary, TextSize = 12, Font = CONFIG.FontMedium,
+            TextXAlignment = Enum.TextXAlignment.Left, Parent = PickerFrame
+        })
+
+        local Preview = CreateInstance("Frame", {
+            AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 6),
+            Size = UDim2.new(0, 40, 0, 18), BackgroundColor3 = default, BorderSizePixel = 0, Parent = PickerFrame
+        })
+        AddCorner(Preview, CONFIG.SmallRadius)
+
+        -- Color wheel
+        local Wheel = CreateInstance("ImageButton", {
+            Position = UDim2.new(0, 12, 0, 30), Size = UDim2.new(0, 110, 0, 110),
+            BackgroundTransparency = 1, Image = "rbxassetid://6020299385", ZIndex = 2, Parent = PickerFrame
+        })
+
+        local WheelScope = CreateInstance("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(0, 8, 0, 8), BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderColor3 = Color3.new(0, 0, 0), BorderSizePixel = 1, ZIndex = 3, Parent = Wheel
+        })
+        AddCorner(WheelScope, UDim.new(1, 0))
+
+        -- Value slider
+        local ValueSlider = CreateInstance("Frame", {
+            Position = UDim2.new(0, 132, 0, 30), Size = UDim2.new(0, 24, 0, 110),
+            BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2, Parent = PickerFrame
+        })
+        AddCorner(ValueSlider, CONFIG.SmallRadius)
+        CreateInstance("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+                ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))
+            }, Parent = ValueSlider
+        })
+
+        local ValueBar = CreateInstance("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0),
+            Size = UDim2.new(1.2, 0, 0, 3), BackgroundColor3 = Color3.new(0.5, 0.5, 0.5),
+            BorderSizePixel = 1, BorderColor3 = Color3.new(0, 0, 0), ZIndex = 3, Parent = ValueSlider
+        })
+
+        -- RGB text display
+        local RGBLabel = CreateInstance("TextLabel", {
+            Position = UDim2.new(0, 170, 0, 30), Size = UDim2.new(0, 100, 0, 110),
+            BackgroundTransparency = 1, Text = string.format("R: %d\nG: %d\nB: %d",
+                math.floor(default.R * 255), math.floor(default.G * 255), math.floor(default.B * 255)),
+            TextColor3 = CONFIG.TextSecondary, TextSize = 11, Font = CONFIG.FontRegular,
+            TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+            Parent = PickerFrame
+        })
+
+        local colorData = { h = 0, s = 0, v = 1 }
+        -- Init from default color
+        do
+            local h, s, v = default:ToHSV()
+            colorData.h = h; colorData.s = s; colorData.v = v
+        end
+
+        local draggingWheel = false
+        local draggingValue = false
+
+        local function applyColor()
+            local c = Color3.fromHSV(colorData.h, colorData.s, colorData.v)
+            Preview.BackgroundColor3 = c
+            RGBLabel.Text = string.format("R: %d\nG: %d\nB: %d",
+                math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
+            callback(c)
+        end
+
+        local function updateWheel(input)
+            local r = Wheel.AbsoluteSize.X / 2
+            local center = Wheel.AbsolutePosition + Vector2.new(r, r)
+            local mouse = Vector2.new(input.Position.X, input.Position.Y)
+            local offset = mouse - center
+            local angle = math.atan2(offset.Y, offset.X)
+            local dist = math.min(offset.Magnitude, r)
+            colorData.h = (math.pi - angle) / (2 * math.pi)
+            colorData.s = dist / r
+            WheelScope.Position = UDim2.new(0.5, math.cos(angle) * dist, 0.5, math.sin(angle) * dist)
+            applyColor()
+        end
+
+        local function updateValue(input)
+            local y = input.Position.Y - ValueSlider.AbsolutePosition.Y
+            local percent = math.clamp(y / ValueSlider.AbsoluteSize.Y, 0, 1)
+            ValueBar.Position = UDim2.new(0.5, 0, percent, 0)
+            colorData.v = 1 - percent
+            applyColor()
+        end
+
+        Wheel.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingWheel = true; updateWheel(input) end
+        end)
+        ValueSlider.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingValue = true; updateValue(input) end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                if draggingWheel then updateWheel(input) end
+                if draggingValue then updateValue(input) end
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                draggingWheel = false; draggingValue = false
+            end
+        end)
+
+        local pickerObj = { Frame = PickerFrame, Preview = Preview }
+        function pickerObj:SetColor(c)
+            local h, s, v = c:ToHSV()
+            colorData.h = h; colorData.s = s; colorData.v = v
+            Preview.BackgroundColor3 = c
+            RGBLabel.Text = string.format("R: %d\nG: %d\nB: %d",
+                math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
+        end
+        return pickerObj
+    end
+
+    -- ─── Color Slot Grid (for custom color cycles) ───
+    function Tab:AddColorSlots(count, colors, getCurrentColor, onSave, onClear)
+        count = count or 10
+        colors = colors or {}
+
+        local GridFrame = CreateInstance("Frame", {
+            Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = CONFIG.Surface,
+            BorderSizePixel = 0, LayoutOrder = #TabPage:GetChildren(), Parent = TabPage
+        })
+        AddCorner(GridFrame, CONFIG.SmallRadius)
+
+        CreateInstance("TextLabel", {
+            Position = UDim2.new(0, 12, 0, 4), Size = UDim2.new(1, -24, 0, 14), BackgroundTransparency = 1,
+            Text = "CUSTOM COLOR SLOTS (click to save current)", TextColor3 = CONFIG.TextMuted,
+            TextSize = 9, Font = CONFIG.Font, TextXAlignment = Enum.TextXAlignment.Left, Parent = GridFrame
+        })
+
+        local slots = {}
+        for i = 1, count do
+            local slot = CreateInstance("TextButton", {
+                Name = "Slot" .. i, Text = colors[i] and "" or tostring(i),
+                TextColor3 = Color3.new(1, 1, 1), TextSize = 10, Font = CONFIG.FontRegular,
+                BackgroundColor3 = colors[i] or Color3.fromRGB(40, 40, 40),
+                Size = UDim2.new(0, 28, 0, 24),
+                Position = UDim2.new(0, 12 + ((i - 1) % 5) * 33, 0, 22 + math.floor((i - 1) / 5) * 28),
+                BorderSizePixel = 0, Parent = GridFrame
+            })
+            AddCorner(slot, CONFIG.SmallRadius)
+            slot.MouseButton1Click:Connect(function()
+                local c = getCurrentColor()
+                colors[i] = c
+                slot.BackgroundColor3 = c
+                slot.Text = ""
+                if onSave then onSave(i, c, colors) end
+            end)
+            table.insert(slots, slot)
+        end
+
+        -- Clear all button
+        local ClearBtn = CreateInstance("TextButton", {
+            Position = UDim2.new(0, 12 + 5 * 33 + 10, 0, 22),
+            Size = UDim2.new(0, 55, 0, 24), BackgroundColor3 = Color3.fromRGB(60, 30, 30),
+            BorderSizePixel = 0, Text = "Clear", TextColor3 = Color3.new(1, 1, 1),
+            TextSize = 10, Font = CONFIG.FontMedium, Parent = GridFrame
+        })
+        AddCorner(ClearBtn, CONFIG.SmallRadius)
+        ClearBtn.MouseButton1Click:Connect(function()
+            for idx, s in ipairs(slots) do
+                s.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                s.Text = tostring(idx)
+                colors[idx] = nil
+            end
+            if onClear then onClear() end
+        end)
+
+        local slotsObj = { Frame = GridFrame, Slots = slots, Colors = colors }
+        function slotsObj:Refresh(newColors)
+            for idx, s in ipairs(slots) do
+                if newColors[idx] then
+                    s.BackgroundColor3 = newColors[idx]; s.Text = ""
+                else
+                    s.BackgroundColor3 = Color3.fromRGB(40, 40, 40); s.Text = tostring(idx)
+                end
+            end
+        end
+        return slotsObj
     end
 
     return Tab
