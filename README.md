@@ -4,7 +4,7 @@ Basic Candy Farm for Steal Time Simulator
 ## How to Use
 Paste this into your executor:
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CandyFarmLoader/refs/heads/main/Loader.lua"))()
 ```
 
 ## Features
