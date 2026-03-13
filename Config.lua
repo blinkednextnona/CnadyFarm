@@ -88,6 +88,8 @@ Config.Settings = {
         FleeMode = "Armed",
         LagFixer = false,
         AntiAdmin = false,
+        AntiAdminAction = "Kick", -- "Kick" or "ServerHop"
+        AutoReExecute = false,    -- re-run loader after server hop
         AutoStartFarm = false,
     },
     Visuals = {
