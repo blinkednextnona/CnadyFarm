@@ -208,16 +208,79 @@ local function runAntiAdminCheck()
 
         if detected then
             local GUI = Config.Modules.GUI
+            local action = Config.Settings.Farming.AntiAdminAction or "Kick"
+
             if GUI then
                 local lbl = GUI.GetStatusLabel()
-                if lbl then lbl.Text = "Status: ANTI-ADMIN KICKING!" end
+                if lbl then lbl.Text = "Status: ANTI-ADMIN " .. (action == "ServerHop" and "HOPPING!" or "KICKING!") end
             end
             Config.Farm.Enabled = false
+
             if Config.Modules.Webhook then
-                Config.Modules.Webhook.Send(true, detectedInfo)
+                Config.Modules.Webhook.Send(true, detectedInfo .. " | Action: " .. action)
             end
+
             task.wait(0.5)
-            Config.Player:Kick("\n[ANTI-ADMIN PROTECTION]\n\n" .. detectedInfo .. "\n\nServer connection severed to protect your account.")
+
+            if action == "ServerHop" then
+                -- If auto-re-execute is on, set AutoStartFarm so it starts farming after hop
+                if Config.Settings.Farming.AutoReExecute then
+                    Config.Settings.Farming.AutoStartFarm = true
+                    Config.SaveSettings()
+                end
+
+                -- Find a different server to hop to
+                local TeleportService = Config.Services.TeleportService
+                local HttpService = Config.Services.HttpService
+                local placeId = game.PlaceId
+                local currentJobId = game.JobId
+
+                local success, servers = pcall(function()
+                    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+                    return HttpService:JSONDecode(game:HttpGet(url))
+                end)
+
+                local targetServer = nil
+                if success and servers and servers.data then
+                    for _, server in ipairs(servers.data) do
+                        if server.id ~= currentJobId and server.playing < server.maxPlayers then
+                            targetServer = server.id
+                            break
+                        end
+                    end
+                end
+
+                if targetServer then
+                    -- Hop to specific server
+                    pcall(function()
+                        TeleportService:TeleportToPlaceInstance(placeId, targetServer, Config.Player)
+                    end)
+                else
+                    -- Fallback: just teleport to same place (random server)
+                    pcall(function()
+                        TeleportService:Teleport(placeId, Config.Player)
+                    end)
+                end
+
+                -- If auto re-execute, queue the script to run after teleport
+                if Config.Settings.Farming.AutoReExecute then
+                    pcall(function()
+                        if queue_on_teleport then
+                            local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()'
+                            queue_on_teleport(loaderCode)
+                        elseif syn and syn.queue_on_teleport then
+                            local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()'
+                            syn.queue_on_teleport(loaderCode)
+                        elseif fluxus and fluxus.queue_on_teleport then
+                            local loaderCode = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/Loader.lua"))()'
+                            fluxus.queue_on_teleport(loaderCode)
+                        end
+                    end)
+                end
+            else
+                -- Default: Kick
+                Config.Player:Kick("\n[ANTI-ADMIN PROTECTION]\n\n" .. detectedInfo .. "\n\nServer connection severed to protect your account.")
+            end
         end
     end)
 end
