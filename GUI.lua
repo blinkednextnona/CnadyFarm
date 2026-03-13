@@ -1,22 +1,22 @@
 -- ============================================
 -- GUI.lua - Heart Zone V18 using CleanUI Library
+-- ALL settings restored + color picker + slots
 -- ============================================
 local GUI = {}
 local Config = nil
 local Library = nil
 local Notify = nil
  
--- Element references for external updates
 local StatusLabel, TimeLabel, EstLabel
  
 function GUI.GetScreenGui()    return Library and Library.ScreenGui end
 function GUI.GetStatusLabel()  return StatusLabel end
 function GUI.GetTimeLabel()    return TimeLabel end
 function GUI.GetEstLabel()     return EstLabel end
-function GUI.GetColorBtn()     return nil end -- not needed with new UI
+function GUI.GetColorBtn()     return nil end
 function GUI.GetColorTitle()   return nil end
 function GUI.GetToggleBtn()    return nil end
-function GUI.RefreshUI()       end -- handled by CleanUI toggles internally
+function GUI.RefreshUI()       end
  
 function GUI.Init(cfg)
     Config = cfg
@@ -28,25 +28,19 @@ function GUI.Init(cfg)
     if Config.Modules.Visuals     then Config.Modules.Visuals.SetConfig(Config)     end
     if Config.Modules.Pathfinding then Config.Modules.Pathfinding.SetConfig(Config) end
  
-    -- Load the CleanUI library from GitHub
+    -- Load CleanUI library
     local BASE_URL = "https://raw.githubusercontent.com/blinkednextnona/CnadyFarm/main/"
     local uiCode = game:HttpGet(BASE_URL .. "CleanUI.lua")
     Library = loadstring(uiCode)()
     Notify = Library.Notify
  
-    -- ==================
-    -- STATUS BAR (custom labels at bottom of sidebar area)
-    -- We'll use labels in the Home tab for status
-    -- ==================
- 
-    -- ══════════════════
-    -- HOME TAB
-    -- ══════════════════
-    local HomeTab = Library:AddTab("Home", "💖")
+    -- ══════════════════════════════════════
+    -- HOME TAB - Farm control + live stats
+    -- ══════════════════════════════════════
+    local HomeTab = Library:AddTab("Home", "")
  
     HomeTab:AddSection("Farm Control")
  
-    -- Farm toggle
     local FarmToggle = HomeTab:AddToggle("Auto Farm", Config.Farm.Enabled, function(state)
         Config.Farm.Enabled = state
         if state then
@@ -74,24 +68,51 @@ function GUI.Init(cfg)
         Config.SaveSettings()
     end)
  
-    -- Farm mode
-    HomeTab:AddButton("Mode: " .. Config.Farm.CurrentMode .. " (click to toggle)", function()
-        Config.Farm.CurrentMode = (Config.Farm.CurrentMode == "Closest") and "Highest" or "Closest"
-        if Config.Farm.Enabled then Config.Farm.LockedTarget = nil; Config.Farm.PathGenerated = false end
-        Notify("Mode", "Switched to: " .. Config.Farm.CurrentMode, 2)
-        Config.SaveSettings()
-    end)
- 
     HomeTab:AddSeparator()
     HomeTab:AddSection("Live Stats")
     StatusLabel = HomeTab:AddLabel("Status: Idle")
     TimeLabel = HomeTab:AddLabel("Time: 00:00:00")
     EstLabel = HomeTab:AddLabel("Est. Hearts/Hr: 0")
  
-    -- ══════════════════
-    -- SAFETY TAB
-    -- ══════════════════
-    local SafetyTab = Library:AddTab("Safety", "🛡️")
+    -- ══════════════════════════════════════
+    -- FARM TAB - farming-specific settings
+    -- ══════════════════════════════════════
+    local FarmTab = Library:AddTab("Farm", "")
+ 
+    FarmTab:AddSection("Target Mode")
+ 
+    -- Mode toggle that updates its own text
+    local modeToggle = FarmTab:AddToggle("Highest Value Mode", Config.Farm.CurrentMode == "Highest", function(state)
+        Config.Farm.CurrentMode = state and "Highest" or "Closest"
+        if Config.Farm.Enabled then Config.Farm.LockedTarget = nil; Config.Farm.PathGenerated = false end
+        Notify("Mode", "Now: " .. Config.Farm.CurrentMode, 2)
+        Config.SaveSettings()
+    end)
+ 
+    FarmTab:AddLabel("OFF = Closest heart  |  ON = Highest value heart")
+ 
+    FarmTab:AddSeparator()
+    FarmTab:AddSection("Collection")
+ 
+    FarmTab:AddSlider("Collect Distance", 1, 10, S.Farming.CollectDistance, function(val)
+        S.Farming.CollectDistance = val
+        Config.SaveSettings()
+    end)
+ 
+    FarmTab:AddSeparator()
+    FarmTab:AddSection("Performance")
+ 
+    FarmTab:AddToggle("Lag Fixer", S.Farming.LagFixer, function(state)
+        S.Farming.LagFixer = state
+        if Config.Modules.LagFixer then Config.Modules.LagFixer.Toggle(state) end
+        Config.SaveSettings()
+        Notify("Lag Fixer", state and "Textures hidden" or "Textures restored", 2, state and "success" or "warning")
+    end)
+ 
+    -- ══════════════════════════════════════
+    -- SAFETY TAB - flee, anti-admin, protection
+    -- ══════════════════════════════════════
+    local SafetyTab = Library:AddTab("Safety", "")
  
     SafetyTab:AddSection("Flee Settings")
  
@@ -101,14 +122,15 @@ function GUI.Init(cfg)
         Config.SaveSettings()
     end)
  
-    -- Flee mode cycle button
-    local fleeModeBtn
-    fleeModeBtn = SafetyTab:AddButton("Flee Mode: " .. S.Farming.FleeMode, function()
+    -- Flee mode cycle
+    local fleeModeLabel = SafetyTab:AddLabel("Current Flee Mode: " .. S.Farming.FleeMode)
+    SafetyTab:AddButton("Cycle Flee Mode (Armed → All → Off)", function()
         if S.Farming.FleeMode == "Armed" then S.Farming.FleeMode = "All"
         elseif S.Farming.FleeMode == "All" then S.Farming.FleeMode = "Off"
         else S.Farming.FleeMode = "Armed" end
-        fleeModeBtn.Text = "Flee Mode: " .. S.Farming.FleeMode
+        fleeModeLabel.Text = "Current Flee Mode: " .. S.Farming.FleeMode
         Config.SaveSettings()
+        Notify("Flee", "Mode: " .. S.Farming.FleeMode, 1.5)
     end)
  
     SafetyTab:AddSeparator()
@@ -117,7 +139,7 @@ function GUI.Init(cfg)
     SafetyTab:AddToggle("Anti-Admin", S.Farming.AntiAdmin, function(state)
         S.Farming.AntiAdmin = state
         Config.SaveSettings()
-        Notify("Anti-Admin", state and "Protection ON" or "Protection OFF", 2, state and "success" or "warning")
+        Notify("Anti-Admin", state and "ON" or "OFF", 2, state and "success" or "warning")
     end)
  
     SafetyTab:AddToggle("TP Protection (Flee)", S.Movement.TPProtection, function(state)
@@ -130,15 +152,20 @@ function GUI.Init(cfg)
         Config.SaveSettings()
     end)
  
-    -- ══════════════════
-    -- MOVEMENT TAB
-    -- ══════════════════
-    local MoveTab = Library:AddTab("Movement", "🏃")
+    -- ══════════════════════════════════════
+    -- MOVEMENT TAB - speed, teleport
+    -- ══════════════════════════════════════
+    local MoveTab = Library:AddTab("Movement", "")
  
     MoveTab:AddSection("Speed")
  
     MoveTab:AddSlider("Walk Speed", 10, 100, S.Movement.WalkSpeed, function(val)
         S.Movement.WalkSpeed = val
+        Config.SaveSettings()
+    end)
+ 
+    MoveTab:AddSlider("Stuck Threshold", 1, 10, S.Movement.StuckThreshold, function(val)
+        S.Movement.StuckThreshold = val
         Config.SaveSettings()
     end)
  
@@ -150,59 +177,92 @@ function GUI.Init(cfg)
         Config.SaveSettings()
     end)
  
-    -- ══════════════════
-    -- VISUALS TAB
-    -- ══════════════════
-    local VisTab = Library:AddTab("Visuals", "🎨")
+    -- ══════════════════════════════════════
+    -- VISUALS TAB - color picker, modes, slots
+    -- ══════════════════════════════════════
+    local VisTab = Library:AddTab("Visuals", "")
  
-    VisTab:AddSection("Performance")
+    VisTab:AddSection("Path Color")
  
-    VisTab:AddToggle("Lag Fixer", S.Farming.LagFixer, function(state)
-        S.Farming.LagFixer = state
-        if Config.Modules.LagFixer then Config.Modules.LagFixer.Toggle(state) end
+    -- Color picker wheel
+    local colorPicker = VisTab:AddColorPicker("Static Color", S.Visuals.PathColor, function(c)
+        S.Visuals.PathColor = c
+        S.Visuals.ColorMode = "Static"
         Config.SaveSettings()
-        Notify("Lag Fixer", state and "Textures hidden for FPS" or "Textures restored", 2, state and "success" or "warning")
     end)
  
     VisTab:AddSeparator()
-    VisTab:AddSection("Path Color Mode")
+    VisTab:AddSection("Color Animation Mode")
  
-    VisTab:AddButton("Static Color (default)", function()
-        S.Visuals.ColorMode = "Static"
-        Config.SaveSettings()
-        Notify("Color", "Static mode", 1.5)
+    -- Current mode label
+    local colorModeLabel = VisTab:AddLabel("Current Mode: " .. S.Visuals.ColorMode)
+ 
+    VisTab:AddButton("Static (use wheel color)", function()
+        S.Visuals.ColorMode = "Static"; colorModeLabel.Text = "Current Mode: Static"
+        Config.SaveSettings(); Notify("Color", "Static mode", 1.5)
     end)
  
-    VisTab:AddButton("Rainbow Mode", function()
-        S.Visuals.ColorMode = "Rainbow"
-        Config.SaveSettings()
-        Notify("Color", "Rainbow mode", 1.5, "success")
+    VisTab:AddButton("Rainbow", function()
+        S.Visuals.ColorMode = "Rainbow"; colorModeLabel.Text = "Current Mode: Rainbow"
+        Config.SaveSettings(); Notify("Color", "Rainbow mode", 1.5, "success")
     end)
  
     VisTab:AddButton("Strobe Black/White", function()
-        S.Visuals.ColorMode = "StrobeBW"
-        Config.SaveSettings()
-        Notify("Color", "Strobe mode", 1.5)
+        S.Visuals.ColorMode = "StrobeBW"; colorModeLabel.Text = "Current Mode: StrobeBW"
+        Config.SaveSettings(); Notify("Color", "Strobe mode", 1.5)
     end)
+ 
+    VisTab:AddButton("Play Custom Cycle (use slots below)", function()
+        if #S.Visuals.CustomColors < 1 then
+            Notify("Color", "Add colors to slots first!", 2, "error")
+            return
+        end
+        S.Visuals.ColorMode = "Custom"; colorModeLabel.Text = "Current Mode: Custom"
+        Config.SaveSettings(); Notify("Color", "Custom cycle active", 1.5, "success")
+    end)
+ 
+    VisTab:AddSeparator()
+    VisTab:AddSection("Animation Settings")
  
     VisTab:AddSlider("Color Speed", 1, 10, math.floor(S.Visuals.ColorSpeed), function(val)
         S.Visuals.ColorSpeed = val
         Config.SaveSettings()
     end)
  
-    VisTab:AddToggle("Color Fade (smooth)", S.Visuals.ColorFade, function(state)
+    VisTab:AddToggle("Smooth Fade", S.Visuals.ColorFade, function(state)
         S.Visuals.ColorFade = state
         Config.SaveSettings()
     end)
  
-    -- ══════════════════
+    VisTab:AddSeparator()
+    VisTab:AddSection("Custom Color Cycle Slots")
+ 
+    -- Color slots (10 slots, click to save current path color)
+    local colorSlots = VisTab:AddColorSlots(
+        10,
+        S.Visuals.CustomColors,
+        function() return S.Visuals.PathColor end, -- getCurrentColor
+        function(idx, color, allColors) -- onSave
+            S.Visuals.CustomColors = allColors
+            Config.SaveSettings()
+            Notify("Slot " .. idx, "Color saved", 1, "success")
+        end,
+        function() -- onClear
+            S.Visuals.CustomColors = {}
+            Config.SaveSettings()
+            Notify("Slots", "All cleared", 1.5, "warning")
+        end
+    )
+    colorSlots:Refresh(S.Visuals.CustomColors)
+ 
+    -- ══════════════════════════════════════
     -- WEBHOOK TAB
-    -- ══════════════════
-    local WebTab = Library:AddTab("Webhook", "📡")
+    -- ══════════════════════════════════════
+    local WebTab = Library:AddTab("DC Webhook", "")
  
     WebTab:AddSection("Discord Webhook")
  
-    local whBox = WebTab:AddTextbox("URL", S.Webhook.URL ~= "" and S.Webhook.URL or "", function(text)
+    WebTab:AddTextbox("URL", S.Webhook.URL ~= "" and S.Webhook.URL or "", function(text)
         S.Webhook.URL = text
         Config.SaveSettings()
     end)
@@ -210,7 +270,7 @@ function GUI.Init(cfg)
     WebTab:AddToggle("Enable Webhook", S.Webhook.Enabled, function(state)
         S.Webhook.Enabled = state
         Config.SaveSettings()
-        Notify("Webhook", state and "Webhook ON" or "Webhook OFF", 2, state and "success" or "warning")
+        Notify("Webhook", state and "ON" or "OFF", 2, state and "success" or "warning")
     end)
  
     WebTab:AddSlider("Interval", 1, 60, S.Webhook.Interval, function(val)
@@ -218,13 +278,12 @@ function GUI.Init(cfg)
         Config.SaveSettings()
     end)
  
-    -- Unit cycle button
-    local unitBtn
-    unitBtn = WebTab:AddButton("Unit: " .. S.Webhook.Unit, function()
+    local unitLabel = WebTab:AddLabel("Unit: " .. S.Webhook.Unit)
+    WebTab:AddButton("Cycle Unit (Sec → Min → Hr)", function()
         if S.Webhook.Unit == "Seconds" then S.Webhook.Unit = "Minutes"
         elseif S.Webhook.Unit == "Minutes" then S.Webhook.Unit = "Hours"
         else S.Webhook.Unit = "Seconds" end
-        unitBtn.Text = "Unit: " .. S.Webhook.Unit
+        unitLabel.Text = "Unit: " .. S.Webhook.Unit
         Config.SaveSettings()
     end)
  
@@ -236,9 +295,9 @@ function GUI.Init(cfg)
         end
     end)
  
-    -- ══════════════════
+    -- ══════════════════════════════════════
     -- ZONE TAB
-    -- ══════════════════
+    -- ══════════════════════════════════════
     local ZoneTab = Library:AddTab("Zone", "📍")
  
     ZoneTab:AddSection("Farm Zone Restriction")
@@ -272,10 +331,10 @@ function GUI.Init(cfg)
         Notify("Zone", "Zone cleared", 1.5, "warning")
     end)
  
-    -- ══════════════════
+    -- ══════════════════════════════════════
     -- EXTRA TAB
-    -- ══════════════════
-    local ExtraTab = Library:AddTab("Extra", "⚡")
+    -- ══════════════════════════════════════
+    local ExtraTab = Library:AddTab("Extra", "")
  
     ExtraTab:AddSection("Extras")
  
@@ -285,8 +344,14 @@ function GUI.Init(cfg)
         Notify("Case 26", state and "Auto-buying ON" or "Auto-buying OFF", 2, state and "success" or "warning")
     end)
  
+    ExtraTab:AddToggle("Auto Start Farm (next join)", false, function(state)
+        S.Farming.AutoStartFarm = state
+        Config.SaveSettings()
+        Notify("Auto Start", state and "Will auto-farm next join" or "Disabled", 2, state and "success" or "warning")
+    end)
+ 
     ExtraTab:AddSeparator()
-    ExtraTab:AddSection("UI")
+    ExtraTab:AddSection("UI Controls")
  
     ExtraTab:AddButton("Reset UI Position", function()
         Library.MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -304,13 +369,12 @@ function GUI.Init(cfg)
     ExtraTab:AddLabel("Toggle UI: RightShift")
     ExtraTab:AddLabel("Drag the top bar to move.")
  
-    -- ══════════════════
-    -- CHARACTER RESPAWN
-    -- ══════════════════
+    -- ══════════════════════════════════════
+    -- CHARACTER + AUTO START
+    -- ══════════════════════════════════════
     Config.Player.CharacterAdded:Connect(Config.UpdateCharacter)
     if Config.Player.Character then Config.UpdateCharacter(Config.Player.Character) end
  
-    -- AUTO START
     if S.Farming.AutoStartFarm then
         S.Farming.AutoStartFarm = false; Config.SaveSettings()
         task.spawn(function()
@@ -330,10 +394,8 @@ function GUI.Init(cfg)
         end)
     end
  
-    -- STARTUP NOTIFICATION
     task.wait(0.5)
-    Notify("💖 Heart Zone V18", "Loaded! Press RightShift to toggle UI.", 4, "success")
+    Notify("Heart Farm V18", "Loaded! Press RightShift to toggle UI.", 4, "success")
 end
  
 return GUI
- 
